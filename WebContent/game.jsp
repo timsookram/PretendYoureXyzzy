@@ -78,8 +78,7 @@ HttpSession hSession = request.getSession(true);
 
 <div id="welcome">
   <h1>
-    Pretend You're <dfn style="border-bottom: 1px dotted black"
-    title="Xyzzy is an Artificial Unintelligence bot. You'll be making more sense than him in this game.">
+    Pretend You're <dfn title="Xyzzy is an Artificial Unintelligence bot. You'll be making more sense than him in this game.">
     Xyzzy</dfn>
   </h1>
   <h3>A <a href="http://cardsagainsthumanity.com/">Cards Against Humanity</a> clone.</h3>

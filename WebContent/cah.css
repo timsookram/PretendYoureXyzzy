@@ -66,6 +66,9 @@ h2,h3,h4 {
   bottom: 0px;
 }
 */
+dfn {
+	border-bottom: 1px dotted black;
+}
 
 #menubar {
   background:#555;
