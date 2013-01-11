@@ -87,9 +87,14 @@ dfn {
 }
 
 #nickbox {
-  border: 1px solid black;
-  display: inline;
-  padding: 5px;
+  background: #333;
+  color: #fff;
+  display: inline-block;
+  font-size: 1.5em;
+  padding: .25em;
+}
+#nickbox input{
+  font-size:inherit;
 }
 
 #canvas {
@@ -238,8 +243,8 @@ dfn {
   font-size: 14px;
 }
 
-span.error {
-  color: red;
+.error {
+  color: #c00;
 }
 
 span.debug, span.admin {
