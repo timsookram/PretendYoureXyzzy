@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8" ?>
 <%--
 Copyright (c) 2012, Andy Janata
 All rights reserved.
@@ -34,35 +33,33 @@ created for the user now.
 @SuppressWarnings("unused")
 HttpSession hSession = request.getSession(true);
 %>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta charset=UTF-8>
 <title>Pretend You're Xyzzy</title>
-<script type="text/javascript" src="js/jquery-1.8.2.js"></script>
-<script type="text/javascript" src="js/jquery.cookie.js"></script>
-<script type="text/javascript" src="js/QTransform.js"></script>
-<script type="text/javascript" src="js/jquery-ui.js"></script>
-<script type="text/javascript" src="js/cah.js"></script>
-<script type="text/javascript" src="js/cah.config.js"></script>
+<script src="js/jquery-1.8.2.js"></script>
+<script src="js/jquery.cookie.js"></script>
+<script src="js/QTransform.js"></script>
+<script src="js/jquery-ui.js"></script>
+<script src="js/cah.js"></script>
+<script src="js/cah.config.js"></script>
 <%-- cah must be first, ajax must be before app. app probably has to be last. --%>
 <%-- TODO make this be dynamic with looking at the filesystem and using jquery --%>
 <%-- except that is nontrivial thanks to dependency ordering -_- --%>
-<script type="text/javascript" src="js/cah.constants.js"></script>
-<script type="text/javascript" src="js/cah.log.js"></script>
-<script type="text/javascript" src="js/cah.gamelist.js"></script>
-<script type="text/javascript" src="js/cah.card.js"></script>
-<script type="text/javascript" src="js/cah.cardset.js"></script>
-<script type="text/javascript" src="js/cah.game.js"></script>
-<script type="text/javascript" src="js/cah.longpoll.js"></script>
-<script type="text/javascript" src="js/cah.longpoll.handlers.js"></script>
-<script type="text/javascript" src="js/cah.ajax.js"></script>
-<script type="text/javascript" src="js/cah.ajax.builder.js"></script>
-<script type="text/javascript" src="js/cah.ajax.handlers.js"></script>
-<script type="text/javascript" src="js/cah.app.js"></script>
-<link rel="stylesheet" type="text/css" href="cah.css" media="screen" />
-<link rel="stylesheet" type="text/css" href="jquery-ui.css" media="screen" />
+<script src="js/cah.constants.js"></script>
+<script src="js/cah.log.js"></script>
+<script src="js/cah.gamelist.js"></script>
+<script src="js/cah.card.js"></script>
+<script src="js/cah.cardset.js"></script>
+<script src="js/cah.game.js"></script>
+<script src="js/cah.longpoll.js"></script>
+<script src="js/cah.longpoll.handlers.js"></script>
+<script src="js/cah.ajax.js"></script>
+<script src="js/cah.ajax.builder.js"></script>
+<script src="js/cah.ajax.handlers.js"></script>
+<script src="js/cah.app.js"></script>
+<link rel="stylesheet" href="cah.css">
+<link rel="stylesheet" href="jquery-ui.css">
 <jsp:include page="analytics.jsp" />
 </head>
 <body>
