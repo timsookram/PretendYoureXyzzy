@@ -109,8 +109,8 @@ HttpSession hSession = request.getSession(true);
     <li>Increased maximum game limit from 60 to 75.</li>
   </ul>
   <div id="nickbox">
-    Nickname: <input type="text" id="nickname" value="" maxlength="30" />
-    <input type="button" id="nicknameconfirm" value="Set" />
+    <label for=nickname>Nickname:</label> <input type="text" id="nickname" maxlength="30">
+    <input type="button" id="nicknameconfirm" value="Start">
     <span id="nickbox_error" class="error"></span>
   </div>
   <p>
