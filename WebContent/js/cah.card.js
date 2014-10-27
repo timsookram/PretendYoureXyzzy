@@ -86,7 +86,7 @@ cah.card.BaseCard = function(opt_faceUp, opt_id) {
    */
   this.faceUpElem_ = undefined;
 
-  this.element_ = $('<div id="card_' + this.id_ + '" class="card_holder" ><br/></div>')[0];
+  this.element_ = $('<div id="card_' + this.id_ + '" class="card_holder"><br/></div>')[0];
   if (this.faceUp_) {
     this.turnFaceUp();
   } else {
@@ -137,14 +137,27 @@ cah.card.BaseCard.prototype.getFaceUp_ = function() {
 };
 
 /**
- * Set the visible text on a card. It matters not if the card is face-up or face-down.
+ * Set the visible text on a card. It matters not if the card is face-up or face-down. HTML is
+ * allowed and entities are required.
  * 
  * @param {string}
- *          text Text to display on the card.
+ *          text HTML to display on the card.
  */
 cah.card.BaseCard.prototype.setText = function(text) {
   this.ensureFaceUpElement_();
-  jQuery(".card_text", this.faceUpElem_).text(text);
+  $(".card_text", this.faceUpElem_).html(text);
+  // TODO do this better
+  $(".card_text", this.faceUpElem_).attr(
+      "aria-label",
+      text.replace("____", "blank").replace("&trade;", "").replace("&reg;", "").replace("&amp;",
+          "and"));
+};
+
+/**
+ * Gets the screen reader text from this card.
+ */
+cah.card.BaseCard.prototype.getAriaText = function() {
+  return $(".card_text", this.faceUpElem_).attr("aria-label");
 };
 
 /**
@@ -321,6 +334,15 @@ cah.card.WhiteCard = function(opt_faceUp, opt_id) {
   cah.card.BaseCard.call(this, opt_faceUp, opt_id);
 };
 cah.inherits(cah.card.WhiteCard, cah.card.BaseCard);
+
+/**
+ * Checks if this is a blank card.
+ * 
+ * @returns True if this is a blank card.
+ */
+cah.card.WhiteCard.prototype.isBlankCard = function() {
+  return this.getServerId() < -1;
+};
 
 /**
  * @override

@@ -30,18 +30,18 @@ Administration tools.
 <%@ page import="net.socialgamer.cah.HibernateUtil" %>
 <%@ page import="net.socialgamer.cah.db.BlackCard" %>
 <%@ page import="net.socialgamer.cah.db.WhiteCard" %>
+<%@ page import="net.socialgamer.cah.Constants" %>
 <%@ page import="net.socialgamer.cah.RequestWrapper" %>
 <%@ page import="org.hibernate.Session" %>
 <%@ page import="org.hibernate.Transaction" %>
 <%
 RequestWrapper wrapper = new RequestWrapper(request);
-String remoteAddr = wrapper.getRemoteAddr();
-// TODO better access control than hard-coding IP addresses.
-if (!(remoteAddr.equals("0:0:0:0:0:0:0:1") || remoteAddr.equals("127.0.0.1") ||
-    remoteAddr.equals("98.248.33.90") || remoteAddr.equals("207.161.39.198"))) {
+if (!Constants.ADMIN_IP_ADDRESSES.contains(wrapper.getRemoteAddr())) {
   response.sendError(403, "Access is restricted to known hosts");
   return;
 }
+
+final String watermark = request.getParameter("watermark") != null ? request.getParameter("watermark") : "";
 
 String error = "";
 String status = "";
@@ -75,6 +75,7 @@ if (color != null) {
         card.setText(text);
         card.setPick(pick);
         card.setDraw(draw);
+        card.setWatermark(watermark);
         s.save(card);
         transaction.commit();
         s.close();
@@ -93,6 +94,7 @@ if (color != null) {
       transaction.begin();
       final WhiteCard card = new WhiteCard();
       card.setText(text);
+      card.setWatermark(watermark);
       s.save(card);
       transaction.commit();
       s.close();
@@ -123,12 +125,18 @@ if (color != null) {
 <br/>
 <label for="draw">Draw</label><input type="text" id="draw" name="draw" size="3" value="0" />
 <br/>
+<label for="watermark_b">Watermark</label>
+<input type="text" id="watermark_b" name="watermark" size="3" maxlength="5" value="<%= watermark %>" />
+<br/>
 <input type="submit" value="Add card" />
 </form>
 <h1 id="white">White Card</h1>
 <form method="post" action="addcard.jsp">
 <input type="hidden" name="color" value="white" />
 <label for="white_text">Card Text</label><input type="text" id="white_text" name="text" size="150" />
+<br/>
+<label for="watermark_w">Watermark</label>
+<input type="text" id="watermark_w" name="watermark" size="3" maxlength="5" value="<%= watermark %>" />
 <br/>
 <input type="submit" value="Add card" />
 </form>

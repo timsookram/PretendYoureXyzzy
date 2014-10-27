@@ -1,9 +1,7 @@
 package net.socialgamer.cah.handlers;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 import javax.servlet.http.HttpSession;
 
@@ -15,8 +13,8 @@ import net.socialgamer.cah.Constants.ReturnableData;
 import net.socialgamer.cah.RequestWrapper;
 import net.socialgamer.cah.data.Game;
 import net.socialgamer.cah.data.GameManager;
+import net.socialgamer.cah.data.GameOptions;
 import net.socialgamer.cah.data.User;
-import net.socialgamer.cah.db.CardSet;
 
 import com.google.inject.Inject;
 
@@ -41,26 +39,20 @@ public class ChangeGameOptionHandler extends GameWithPlayerHandler {
       return error(ErrorCode.ALREADY_STARTED);
     } else {
       try {
-        final int scoreLimit = Integer.parseInt(request.getParameter(AjaxRequest.SCORE_LIMIT));
-        final int playerLimit = Integer.parseInt(request.getParameter(AjaxRequest.PLAYER_LIMIT));
-        final String[] cardSetsParsed = request.getParameter(AjaxRequest.CARD_SETS).split(",");
-        final Set<CardSet> cardSets = new HashSet<CardSet>();
-        for (final String cardSetId : cardSetsParsed) {
-          if (!cardSetId.isEmpty()) {
-            cardSets.add((CardSet) game.getHibernateSession().load(CardSet.class,
-                Integer.parseInt(cardSetId)));
-          }
+        final String value = request.getParameter(AjaxRequest.GAME_OPTIONS);
+        final GameOptions options = GameOptions.deserialize(value);
+        final String oldPassword = game.getPassword();
+        game.updateGameSettings(options);
+
+        // only broadcast an update if the password state has changed, because it needs to change
+        // the text on the join button and the sort order
+        if (!game.getPassword().equals(oldPassword)) {
+          gameManager.broadcastGameListRefresh();
         }
-        String password = request.getParameter(AjaxRequest.PASSWORD);
-        if (password == null) {
-          password = "";
-        }
-        game.updateGameSettings(scoreLimit, playerLimit, cardSets, password);
-      } catch (final NumberFormatException nfe) {
+      } catch (final Exception e) {
         return error(ErrorCode.BAD_REQUEST);
       }
 
-      gameManager.broadcastGameListRefresh();
       return data;
     }
   }

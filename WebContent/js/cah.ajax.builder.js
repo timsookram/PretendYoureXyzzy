@@ -134,35 +134,13 @@ cah.ajax.Builder.prototype.withCardId = function(cardId) {
 };
 
 /**
- * @param {Array}
- *          cardSets List of card set ids to use in the request.
+ * @param {Object}
+ *          options Game options to use in the request.
  * @returns {cah.ajax.Builder} This object.
  */
-cah.ajax.Builder.prototype.withCardSets = function(cardSets) {
+cah.ajax.Builder.prototype.withGameOptions = function(options) {
   this.assertNotExecuted_();
-  this.data[cah.$.AjaxRequest.CARD_SETS] = cardSets.join(',');
-  return this;
-};
-
-/**
- * @param {number}
- *          playerLimit Player limit field to use in the request.
- * @returns {cah.ajax.Builder} This object.
- */
-cah.ajax.Builder.prototype.withPlayerLimit = function(playerLimit) {
-  this.assertNotExecuted_();
-  this.data[cah.$.AjaxRequest.PLAYER_LIMIT] = playerLimit;
-  return this;
-};
-
-/**
- * @param {number}
- *          scoreLimit Score limit field to use in the request.
- * @returns {cah.ajax.Builder} This object.
- */
-cah.ajax.Builder.prototype.withScoreLimit = function(scoreLimit) {
-  this.assertNotExecuted_();
-  this.data[cah.$.AjaxRequest.SCORE_LIMIT] = scoreLimit;
+  this.data[cah.$.AjaxRequest.GAME_OPTIONS] = $.toJSON(options);
   return this;
 };
 
@@ -174,6 +152,28 @@ cah.ajax.Builder.prototype.withScoreLimit = function(scoreLimit) {
 cah.ajax.Builder.prototype.withPassword = function(password) {
   this.assertNotExecuted_();
   this.data[cah.$.AjaxRequest.PASSWORD] = password;
+  return this;
+};
+
+/**
+ * @param {boolean}
+ *          wall Whether or not this is a warn-all ("wall").
+ * @returns {cah.ajax.Builder} This object.
+ */
+cah.ajax.Builder.prototype.withWall = function(wall) {
+  this.assertNotExecuted_();
+  this.data[cah.$.AjaxRequest.WALL] = wall;
+  return this;
+};
+
+/**
+ * @param {boolean}
+ *          emote Whether or not this is an emote
+ * @returns {cah.ajax.Builder} This object.
+ */
+cah.ajax.Builder.prototype.withEmote = function(emote) {
+  this.assertNotExecuted_();
+  this.data[cah.$.AjaxRequest.EMOTE] = emote;
   return this;
 };
 

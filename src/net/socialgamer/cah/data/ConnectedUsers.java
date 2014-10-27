@@ -26,18 +26,21 @@ package net.socialgamer.cah.data;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
+import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
 
 import net.socialgamer.cah.Constants.DisconnectReason;
+import net.socialgamer.cah.Constants.ErrorCode;
 import net.socialgamer.cah.Constants.LongPollEvent;
 import net.socialgamer.cah.Constants.LongPollResponse;
 import net.socialgamer.cah.Constants.ReturnableData;
 import net.socialgamer.cah.data.QueuedMessage.MessageType;
+
+import org.apache.log4j.Logger;
 
 import com.google.inject.Singleton;
 
@@ -51,10 +54,17 @@ import com.google.inject.Singleton;
 @Singleton
 public class ConnectedUsers {
 
+  private static final Logger logger = Logger.getLogger(ConnectedUsers.class);
+
   /**
    * Duration of a ping timeout, in nanoseconds.
    */
-  public static final long PING_TIMEOUT = 45L * 1000L * 1000000L;
+  public static final long PING_TIMEOUT = TimeUnit.SECONDS.toNanos(90);
+
+  /**
+   * Duration of an idle timeout, in nanoseconds.
+   */
+  public static final long IDLE_TIMEOUT = TimeUnit.MINUTES.toNanos(60);
 
   /**
    * Key (username) must be stored in lower-case to facilitate case-insensitivity in nicks.
@@ -71,23 +81,33 @@ public class ConnectedUsers {
   }
 
   /**
-   * Checks to see if a user with the specified nickname already exists, and if not add the user,
+   * Checks to see if the specified {@code user} is allowed to connect, and if so, add the user,
    * as an atomic operation.
    * @param user User to add. {@code getNickname()} is used to determine the nickname.
-   * @return {@code true} if the user was added, {@code false} if another user with the same name
-   * already existed.
+   * @param maxUsers Maximum number of users allowed to connect. Admins are always allowed to
+   * connect.
+   * @return {@code null} if the user was added, or an {@link ErrorCode} explaining why the user was
+   * rejected.
    */
-  public boolean checkAndAdd(final User user) {
+  public ErrorCode checkAndAdd(final User user, final int maxUsers) {
     synchronized (users) {
       if (this.hasUser(user.getNickname())) {
-        return false;
+        logger.info(String.format("Rejecting existing username %s from %s", user.toString(),
+            user.getHostName()));
+        return ErrorCode.NICK_IN_USE;
+      } else if (users.size() >= maxUsers && !user.isAdmin()) {
+        logger.warn(String.format("Rejecting user %s due to too many users (%d >= %d)",
+            user.toString(), users.size(), maxUsers));
+        return ErrorCode.TOO_MANY_USERS;
       } else {
+        logger.info(String.format("New user %s from %s (admin=%b)", user.toString(),
+            user.getHostName(), user.isAdmin()));
         users.put(user.getNickname().toLowerCase(), user);
         final HashMap<ReturnableData, Object> data = new HashMap<ReturnableData, Object>();
         data.put(LongPollResponse.EVENT, LongPollEvent.NEW_PLAYER.toString());
         data.put(LongPollResponse.NICKNAME, user.getNickname());
         broadcastToAll(MessageType.PLAYER_EVENT, data);
-        return true;
+        return null;
       }
     }
   }
@@ -104,6 +124,7 @@ public class ConnectedUsers {
   public void removeUser(final User user, final DisconnectReason reason) {
     synchronized (users) {
       if (users.containsValue(user)) {
+        logger.info(String.format("Removing user %s because %s", user.toString(), reason));
         user.noLongerVaild();
         users.remove(user.getNickname().toLowerCase());
         notifyRemoveUser(user, reason);
@@ -141,28 +162,37 @@ public class ConnectedUsers {
 
   /**
    * Check for any users that have not communicated with the server within the ping timeout delay,
-   * and remove users which have not so communicated.
+   * and remove users which have not so communicated. Also remove clients which are still connected,
+   * but have not actually done anything for a long time.
    */
-  public void checkForPingTimeouts() {
-    final Set<User> removedUsers = new HashSet<User>();
+  public void checkForPingAndIdleTimeouts() {
+    final Map<User, DisconnectReason> removedUsers = new HashMap<User, DisconnectReason>();
     synchronized (users) {
       final Iterator<User> iterator = users.values().iterator();
       while (iterator.hasNext()) {
         final User u = iterator.next();
+        DisconnectReason reason = null;
         if (System.nanoTime() - u.getLastHeardFrom() > PING_TIMEOUT) {
-          removedUsers.add(u);
+          reason = DisconnectReason.PING_TIMEOUT;
+        }
+        else if (!u.isAdmin() && System.nanoTime() - u.getLastUserAction() > IDLE_TIMEOUT) {
+          reason = DisconnectReason.IDLE_TIMEOUT;
+        }
+        if (null != reason) {
+          removedUsers.put(u, reason);
           iterator.remove();
         }
       }
     }
     // Do this later to not keep users locked
-    for (final User u : removedUsers) {
+    for (final Entry<User, DisconnectReason> entry : removedUsers.entrySet()) {
       try {
-        u.noLongerVaild();
-        notifyRemoveUser(u, DisconnectReason.PING_TIMEOUT);
+        entry.getKey().noLongerVaild();
+        notifyRemoveUser(entry.getKey(), entry.getValue());
+        logger.info(String.format("Automatically kicking user %s due to %s", entry.getKey(),
+            entry.getValue()));
       } catch (final Exception e) {
-        // TODO log
-        // otherwise ignore
+        logger.error("Unable to remove pinged-out user", e);
       }
     }
   }

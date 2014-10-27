@@ -32,9 +32,16 @@
 cah.log = {};
 
 /**
- * Log a message for the user the see, always, as a status message. This is also used for chat. The
- * current time is displayed with the log message, using the user's locale settings to determine
- * format.
+ * "Global Chat" tab's chat log
+ */
+cah.log.init = function() {
+  cah.log.log = $('#tab-global .log');
+};
+
+/**
+ * Log a message to the global chat window for the user the see, always, as a status message. This
+ * is also used for chat. The current time is displayed with the log message, using the user's
+ * locale settings to determine format.
  * 
  * @param {string}
  *          text Text to display for this message. Text is added as a TextNode, so HTML is properly
@@ -43,30 +50,104 @@ cah.log = {};
  *          opt_class Optional CSS class to use for this message.
  */
 cah.log.status = function(text, opt_class) {
+  cah.log.status_with_game(null, text, opt_class);
+};
+
+/**
+ * Log a message to a single game's chat window, or the global chat window if game_id is null. This
+ * is also used to support chat.
+ * 
+ * This displays the current time with the log message, using the user's locale settings to
+ * determine format.
+ * 
+ * @param {Number|cah.Game}
+ *          game_or_id ID of the game for which this message should be displayed, or the game object
+ *          itself, or null for the global chat window.
+ * @param {string}
+ *          text Text to display for this message. Text is added as a TextNode, so HTML is properly
+ *          escaped automatically.
+ * @param {string}
+ *          opt_class Optional CSS class to use for this message.
+ */
+cah.log.status_with_game = function(game_or_id, text, opt_class) {
+  var logElement;
+  if (game_or_id === null) {
+    logElement = cah.log.log;
+  } else {
+    var game;
+    if (game_or_id instanceof cah.Game) {
+      game = game_or_id;
+    } else {
+      game = cah.currentGames[game_or_id];
+    }
+    logElement = $(".log", game.getChatElement());
+  }
+
   // TODO this doesn't work right on some mobile browsers
-  var scroll = $("#log").prop("scrollHeight") - $("#log").height() - $("#log").prop("scrollTop") <= 5;
+  var scroll = (logElement.prop("scrollHeight") - logElement.height() - logElement
+      .prop("scrollTop")) <= 5;
 
   var node = $("<span></span><br/>");
   $(node[0]).text("[" + new Date().toLocaleTimeString() + "] " + text + "\n");
   if (opt_class) {
     $(node).addClass(opt_class);
   }
-  $("#log").append(node);
+  logElement.append(node);
+  // only announce things in our game, or if it has a class (admin or error, likely)
+  if (game_or_id !== null || opt_class) {
+    cah.log.ariaStatus(text);
+  }
 
   if (scroll) {
-    $("#log").prop("scrollTop", $("#log").prop("scrollHeight"));
+    logElement.prop("scrollTop", logElement.prop("scrollHeight"));
   }
 };
 
 /**
- * Log a message for the user to see, always, as an error message.
+ * Log a message for the user to see, always, in every tab, as an error message.
  * 
  * @param {string}
  *          text Text to display for this message. Text is added as a TextNode, so HTML is properly
  *          escaped automatically.
  */
 cah.log.error = function(text) {
-  cah.log.status("Error: " + text, "error");
+  cah.log.everyWindow("Error: " + text, "error");
+};
+
+/**
+ * Log a message for the user to see, always, in every tab.
+ * 
+ * @param {string}
+ *          text Text to display for this message. Text is added as a TextNode, so HTML is properly
+ *          escaped automatically.
+ * @param {string}
+ *          opt_class Optional CSS class to use for this message.
+ */
+cah.log.everyWindow = function(text, opt_class) {
+  cah.log.status(text, opt_class);
+
+  for (game_id in cah.currentGames) {
+    if (cah.currentGames.hasOwnProperty(game_id)) {
+      cah.log.status_with_game(game_id, text, opt_class);
+    }
+  }
+};
+
+/**
+ * Set the text of the aria-notification element, which should cause screen readers to read this
+ * text.
+ * 
+ * @param {string}
+ *          text Text to read.
+ */
+cah.log.ariaStatus = function(text) {
+  // TODO we should pull this regex from the java code. it's close enough for now
+  var chatMatch = text.match(/<([a-zA-Z0-9_]+)> (.*)/);
+  if (chatMatch) {
+    $('#aria-notifications').text(chatMatch[1] + ' says ' + chatMatch[2]);
+  } else {
+    $('#aria-notifications').text(text);
+  }
 };
 
 /**

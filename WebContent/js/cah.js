@@ -58,6 +58,21 @@ cah.ignoreList = {};
 cah.hideConnectQuit = false;
 
 /**
+ * Whether the game's browser window has focus, so we don't update the game list when we're not
+ * active.
+ * 
+ * @type {Boolean}
+ */
+cah.windowActive = true;
+
+/**
+ * Whether we've missed a game list refresh due to not being the active window.
+ * 
+ * @type {Boolean}
+ */
+cah.missedGameListRefresh = false;
+
+/**
  * Binds a function to a "this object". Result is a new function that will do the right thing across
  * contexts.
  * 
@@ -92,4 +107,17 @@ cah.inherits = function(childCtor, parentCtor) {
   childCtor.superClass_ = parentCtor.prototype;
   childCtor.prototype = new tempCtor();
   childCtor.prototype.constructor = childCtor;
+};
+
+/**
+ * Updates the hash in the browser's URL for deeplinks.
+ * 
+ * TODO: If we ever want more than just game=id here, this will have to deal with a map somehow.
+ * 
+ * @param {String}
+ *          hash The hash to use in the URL.
+ */
+cah.updateHash = function(hash) {
+  window.location.replace(window.location.protocol + '//' + window.location.host
+      + window.location.pathname.replace(/#$/g, '') + '#' + hash);
 };

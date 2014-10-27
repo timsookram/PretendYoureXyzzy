@@ -33,16 +33,14 @@ Administration tools.
 <%@ page import="net.socialgamer.cah.db.BlackCard" %>
 <%@ page import="net.socialgamer.cah.db.CardSet" %>
 <%@ page import="net.socialgamer.cah.db.WhiteCard" %>
+<%@ page import="net.socialgamer.cah.Constants" %>
 <%@ page import="net.socialgamer.cah.RequestWrapper" %>
 <%@ page import="org.apache.commons.lang3.StringEscapeUtils" %>
 <%@ page import="org.hibernate.Session" %>
 <%@ page import="org.hibernate.Transaction" %>
 <%
 RequestWrapper wrapper = new RequestWrapper(request);
-String remoteAddr = wrapper.getRemoteAddr();
-//TODO better access control than hard-coding IP addresses.
-if (!(remoteAddr.equals("0:0:0:0:0:0:0:1") || remoteAddr.equals("127.0.0.1") ||
-    remoteAddr.equals("98.248.33.90") || remoteAddr.equals("207.161.39.198"))) {
+if (!Constants.ADMIN_IP_ADDRESSES.contains(wrapper.getRemoteAddr())) {
   response.sendError(403, "Access is restricted to known hosts");
   return;
 }
@@ -91,11 +89,21 @@ try {
       }
       if (null != editCardSet) {
         String nameParam = request.getParameter("cardSetName");
+        String descriptionParam = request.getParameter("cardSetDescription");
+        String weightParam = request.getParameter("cardSetWeight");
         String activeParam = request.getParameter("active");
         String baseDeckParam = request.getParameter("baseDeck");
         String[] selectedBlackCardsParam = request.getParameterValues("selectedBlackCards");
         String[] selectedWhiteCardsParam = request.getParameterValues("selectedWhiteCards");
-        if (null == nameParam || nameParam.isEmpty() || null == selectedBlackCardsParam ||
+        int weight = -1;
+        try {
+          weight = Integer.valueOf(weightParam);
+        } catch (Exception e) {
+          // pass
+        }
+        if (weight <= 0 || weight > 9999) {
+          messages.add("Weight must be a positive integer less than 10000.");
+        } else if (null == nameParam || nameParam.isEmpty() || null == selectedBlackCardsParam ||
             null == selectedWhiteCardsParam) {
           messages.add("You didn't specify something.");
           if (-1 == id) {
@@ -103,6 +111,8 @@ try {
           }
         } else {
           editCardSet.setName(nameParam);
+          editCardSet.setDescription(descriptionParam);
+          editCardSet.setWeight(weight);
           editCardSet.setActive("on".equals(activeParam));
           editCardSet.setBaseDeck("on".equals(baseDeckParam));
           List<Integer> blackCardIds = new ArrayList<Integer>(selectedBlackCardsParam.length);
@@ -141,7 +151,7 @@ try {
   }
   
   @SuppressWarnings("unchecked")
-  List<CardSet> cardSets = hibernateSession.createQuery("from CardSet order by id")
+  List<CardSet> cardSets = hibernateSession.createQuery("from CardSet order by weight, id")
       .setReadOnly(true).list();
   
   @SuppressWarnings("unchecked")
@@ -228,14 +238,16 @@ select {
       <th>Name</th>
       <th>Delete</th>
       <th>Edit</th>
+      <th>Weight</th>
     </tr>
   </thead>
   <tbody>
     <% for (CardSet cardSet : cardSets) { %>
       <tr>
-        <td><%= StringEscapeUtils.escapeXml(cardSet.getName()) %></td>
-        <td><a href="?delete=<%= cardSet.getId() %>">Delete</a></td>
+        <td><%= cardSet.getName() %></td>
+        <td><a href="?delete=<%= cardSet.getId() %>" onclick="return confirm('Are you sure?')">Delete</a></td>
         <td><a href="?edit=<%= cardSet.getId() %>">Edit</a></td>
+        <td><%= cardSet.getWeight() %></td>
       </tr>
     <% } %>
   </tbody>
@@ -253,8 +265,16 @@ select {
     <% } %>
   </h2>
   <label for="cardSetName">Name:</label>
-  <input type="text" name="cardSetName" id="cardSetName"
-      value="<%= editCardSet != null ? editCardSet.getName() : "" %>" />
+  <input type="text" name="cardSetName" id="cardSetName" size="50"
+      value="<%= editCardSet != null ? StringEscapeUtils.escapeXml(editCardSet.getName()) : "" %>" />
+  <br/>
+  <label for="cardSetDescription">Description:</label>
+  <input type="text" name="cardSetDescription" id="cardSetDescription" size="50"
+      value="<%= editCardSet != null ? StringEscapeUtils.escapeXml(editCardSet.getDescription()) : "" %>" />
+  <br/>
+  <label for="cardSetWeight">Weight:</label>
+  <input type="text" name="cardSetWeight" id="cardSetWeight" size="4"
+      value="<%= editCardSet != null ? editCardSet.getWeight() : "1000" %>" />
   <br/>
   <label for="active">Active</label>
   <input type="checkbox" name="active" id="active"
@@ -268,7 +288,9 @@ select {
   <br/>
   <select id="allBlackCards" multiple="multiple" style="height:300px">
     <% for (BlackCard blackCard : blackCards) { %>
-      <option value="<%= blackCard.getId() %>"><%= blackCard.toString() %></option>
+      <option value="<%= blackCard.getId() %>">
+        <%= StringEscapeUtils.escapeXml(blackCard.toString()) %>
+      </option>
     <% } %>
   </select>
   <br/>
@@ -281,7 +303,7 @@ select {
     <% if (editCardSet != null) { %>
       <% for (BlackCard blackCard : editCardSet.getBlackCards()) { %>
         <option value="<%= blackCard.getId() %>" id="bc_<%= blackCard.getId() %>">
-          <%= blackCard.toString() %>
+          <%= StringEscapeUtils.escapeXml(blackCard.toString()) %>
         </option>
       <% } %>
     <% } %>
@@ -291,7 +313,9 @@ select {
   <br/>
   <select id="allWhiteCards" multiple="multiple" style="height:300px">
     <% for (WhiteCard whiteCard : whiteCards) { %>
-      <option value="<%= whiteCard.getId() %>"><%= whiteCard.toString() %></option>
+      <option value="<%= whiteCard.getId() %>">
+        <%= StringEscapeUtils.escapeXml(whiteCard.toString()) %>
+      </option>
     <% } %>
   </select>
   <br/>
@@ -304,7 +328,7 @@ select {
     <% if (editCardSet != null) { %>
       <% for (WhiteCard whiteCard : editCardSet.getWhiteCards()) { %>
         <option value="<%= whiteCard.getId() %>" id="wc_<%= whiteCard.getId() %>">
-          <%= whiteCard.toString() %>
+          <%= StringEscapeUtils.escapeXml(whiteCard.toString()) %>
         </option>
       <% } %>
     <% } %>

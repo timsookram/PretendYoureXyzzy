@@ -67,12 +67,20 @@ public class ChatHandler extends Handler {
 
     final User user = (User) session.getAttribute(SessionAttribute.USER);
     assert (user != null);
+    final boolean wall = request.getParameter(AjaxRequest.WALL) != null
+        && Boolean.valueOf(request.getParameter(AjaxRequest.WALL));
+    final boolean emote = request.getParameter(AjaxRequest.EMOTE) != null
+        && Boolean.valueOf(request.getParameter(AjaxRequest.EMOTE));
 
     if (request.getParameter(AjaxRequest.MESSAGE) == null) {
       return error(ErrorCode.NO_MSG_SPECIFIED);
+    } else if (wall && !user.isAdmin()) {
+      return error(ErrorCode.NOT_ADMIN);
     } else {
       final String message = request.getParameter(AjaxRequest.MESSAGE).trim();
 
+      // Intentionally leaving flood protection as per-user, rather than
+      // changing it to per-user-per-game.
       if (user.getLastMessageTimes().size() >= Constants.CHAT_FLOOD_MESSAGE_COUNT) {
         final Long head = user.getLastMessageTimes().get(0);
         if (System.currentTimeMillis() - head < Constants.CHAT_FLOOD_TIME) {
@@ -91,9 +99,15 @@ public class ChatHandler extends Handler {
         broadcastData.put(LongPollResponse.EVENT, LongPollEvent.CHAT.toString());
         broadcastData.put(LongPollResponse.FROM, user.getNickname());
         broadcastData.put(LongPollResponse.MESSAGE, message);
-        broadcastData.put(LongPollResponse.FROM_ADMIN, user.isAdmin());
-        // TODO once there are multiple chat channels, put the destination here
-        // TODO once there are games and they have their own chat, make it only send to participants
+        if (user.isAdmin()) {
+          broadcastData.put(LongPollResponse.FROM_ADMIN, true);
+        }
+        if (wall) {
+          broadcastData.put(LongPollResponse.WALL, true);
+        }
+        if (emote) {
+          broadcastData.put(LongPollResponse.EMOTE, true);
+        }
         users.broadcastToAll(MessageType.CHAT, broadcastData);
       }
     }

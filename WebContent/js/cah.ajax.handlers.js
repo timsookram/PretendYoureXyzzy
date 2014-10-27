@@ -41,6 +41,8 @@ cah.ajax.ErrorHandlers[cah.$.AjaxOperation.REGISTER] = function(data) {
   $("#nickname").focus();
 };
 
+// hacky way to avoid joining a game from the hash if the server told us to join a game.
+cah.ajax.hasAutojoinedGame_ = false;
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.FIRST_LOAD] = function(data) {
   cah.CardSet.populateCardSets(data[cah.$.AjaxResponse.CARD_SETS]);
 
@@ -55,6 +57,7 @@ cah.ajax.SuccessHandlers[cah.$.AjaxOperation.FIRST_LOAD] = function(data) {
       case cah.$.ReconnectNextAction.GAME:
         cah.log.status("Reconnecting to game...");
         cah.Game.joinGame(data[cah.$.AjaxResponse.GAME_ID]);
+        cah.ajax.hasAutojoinedGame_ = true;
         break;
       case cah.$.ReconnectNextAction.NONE:
         // pass
@@ -65,10 +68,20 @@ cah.ajax.SuccessHandlers[cah.$.AjaxOperation.FIRST_LOAD] = function(data) {
   }
 };
 
+// this is kinda hacky, but we need to re-try this operation ONCE if we didn't have a session.
+cah.ajax.hasRetriedFirstLoad_ = false;
 cah.ajax.ErrorHandlers[cah.$.AjaxOperation.FIRST_LOAD] = function(data) {
-  // pass
+  if (data[cah.$.AjaxResponse.ERROR_CODE] == cah.$.ErrorCode.SESSION_EXPIRED
+      && !cah.ajax.hasRetriedFirstLoad_) {
+    cah.ajax.hasRetriedFirstLoad_ = true;
+    cah.Ajax.build(cah.$.AjaxOperation.FIRST_LOAD).run();
+  } else {
+    cah.ajax.ErrorHandlers[cah.$.AjaxOperation.REGISTER](data);
+  }
 };
 
+// another hack thing to trigger an auto-join after the first game list refresh
+cah.ajax.autojoinGameId_ = undefined;
 /**
  * This should only be called after we have a valid registration with the server, as we start doing
  * long polling here.
@@ -84,9 +97,29 @@ cah.ajax.after_registered = function() {
   cah.longpoll.longPoll();
   // Dirty that we have to do this here... Oh well.
   app_resize();
+
+  var hash = window.location.hash.substring(1);
+  if (hash && hash != '') {
+    // TODO find a better place for this if we ever have more than just game=id in the hash.
+    var params = hash.split('&');
+    var options = {};
+    for ( var i in params) {
+      var split = params[i].split('=');
+      var key = split[0];
+      var value = split[1];
+      options[key] = value;
+    }
+    if (options['game']) {
+      cah.ajax.autojoinGameId_ = options['game'];
+    }
+  }
 };
 
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.CHAT] = function(data) {
+  // pass
+};
+
+cah.ajax.SuccessHandlers[cah.$.AjaxOperation.GAME_CHAT] = function(data) {
   // pass
 };
 
@@ -94,7 +127,7 @@ cah.ajax.SuccessHandlers[cah.$.AjaxOperation.LOG_OUT] = function(data) {
   window.location.reload();
 };
 
-cah.ajax.ErrorHandlers[cah.$.AjaxOperation.LOG_OUT] = cah.ajax.SuccessHandlers.logout;
+cah.ajax.ErrorHandlers[cah.$.AjaxOperation.LOG_OUT] = cah.ajax.SuccessHandlers[cah.$.AjaxOperation.LOG_OUT];
 
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.NAMES] = function(data) {
   cah.log.status("Currently connected: " + data[cah.$.AjaxResponse.NAMES].join(", "));
@@ -102,9 +135,23 @@ cah.ajax.SuccessHandlers[cah.$.AjaxOperation.NAMES] = function(data) {
 
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.GAME_LIST] = function(data) {
   cah.GameList.instance.processUpdate(data);
+
+  if (cah.ajax.autojoinGameId_ && !cah.ajax.hasAutojoinedGame_) {
+    try {
+      cah.GameList.instance.joinGame(cah.ajax.autojoinGameId_);
+    } catch (e) {
+      cah.log.error(e);
+      cah.updateHash('');
+    }
+    cah.ajax.autojoinGameId_ = undefined;
+  }
 };
 
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.JOIN_GAME] = function(data, req) {
+  cah.Game.joinGame(req[cah.$.AjaxRequest.GAME_ID]);
+};
+
+cah.ajax.SuccessHandlers[cah.$.AjaxOperation.SPECTATE_GAME] = function(data, req) {
   cah.Game.joinGame(req[cah.$.AjaxRequest.GAME_ID]);
 };
 
@@ -119,14 +166,31 @@ cah.ajax.SuccessHandlers[cah.$.AjaxOperation.GET_GAME_INFO] = function(data, req
   }
 };
 
+cah.ajax.ErrorHandlers[cah.$.AjaxOperation.GET_GAME_INFO] = function(data, req) {
+  if (data[cah.$.AjaxResponse.ERROR_CODE] == cah.$.ErrorCode.INVALID_GAME) {
+    cah.log.error("The game has been removed. Returning to the lobby.");
+    cah.ajax.SuccessHandlers[cah.$.AjaxOperation.LEAVE_GAME](data, req);
+  } else {
+    cah.log.error(cah.$.ErrorCode_msg[data[cah.$.AjaxResponse.ERROR_CODE]]);
+  }
+};
+
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.LEAVE_GAME] = function(data, req) {
   var game = cah.currentGames[req[cah.$.AjaxRequest.GAME_ID]];
   if (game) {
     game.dispose();
     delete cah.currentGames[req[cah.$.AjaxRequest.GAME_ID]];
   }
-  cah.GameList.instance.update();
   cah.GameList.instance.show();
+  cah.GameList.instance.update();
+};
+
+cah.ajax.ErrorHandlers[cah.$.AjaxOperation.LEAVE_GAME] = function(data, req) {
+  if (data[cah.$.AjaxResponse.ERROR_CODE] == cah.$.ErrorCode.INVALID_GAME) {
+    cah.ajax.SuccessHandlers[cah.$.AjaxOperation.LEAVE_GAME](data, req);
+  } else {
+    cah.log.error(cah.$.ErrorCode_msg[data[cah.$.AjaxResponse.ERROR_CODE]]);
+  }
 };
 
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.START_GAME] = function(data, req) {
@@ -134,6 +198,10 @@ cah.ajax.SuccessHandlers[cah.$.AjaxOperation.START_GAME] = function(data, req) {
   if (game) {
     game.startGameComplete();
   }
+};
+
+cah.ajax.SuccessHandlers[cah.$.AjaxOperation.STOP_GAME] = function(data, req) {
+  // pass
 };
 
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.GET_CARDS] = function(data, req) {
@@ -160,8 +228,18 @@ cah.ajax.SuccessHandlers[cah.$.AjaxOperation.PLAY_CARD] = function(data, req) {
   }
 };
 
+cah.ajax.ErrorHandlers[cah.$.AjaxOperation.PLAY_CARD] = function(data) {
+  cah.log.error(cah.$.ErrorCode_msg[data[cah.$.AjaxResponse.ERROR_CODE]]);
+
+  var gameId = req[cah.$.AjaxRequest.GAME_ID];
+  var game = cah.currentGames[gameId];
+  if (game) {
+    game.playCardError();
+  }
+};
+
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.JUDGE_SELECT] = function(data) {
-  // pass?
+  // pass
 };
 
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.CHANGE_GAME_OPTIONS] = function(data) {
@@ -174,4 +252,15 @@ cah.ajax.SuccessHandlers[cah.$.AjaxOperation.KICK] = function(data) {
 
 cah.ajax.SuccessHandlers[cah.$.AjaxOperation.BAN] = function(data) {
   // pass
+};
+
+cah.ajax.SuccessHandlers[cah.$.AjaxOperation.SCORE] = function(data, req) {
+  var gameId = req[cah.$.AjaxRequest.GAME_ID];
+  var info = data[cah.$.AjaxResponse.PLAYER_INFO];
+  var msg = info[cah.$.GamePlayerInfo.NAME] + " has " + info[cah.$.GamePlayerInfo.SCORE] + " Awesome Points.";
+  if (gameId) {
+    cah.log.status_with_game(gameId, msg);
+  } else {
+    cah.log.status(msg);
+  }
 };

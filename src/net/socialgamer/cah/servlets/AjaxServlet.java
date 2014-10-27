@@ -65,12 +65,15 @@ public class AjaxServlet extends CahServlet {
       IOException {
     final PrintWriter out = response.getWriter();
     final User user = (User) hSession.getAttribute(SessionAttribute.USER);
+    if (null != user) {
+      user.userDidSomething();
+    }
     int serial = -1;
     if (request.getParameter(AjaxRequest.SERIAL.toString()) != null) {
       try {
         serial = Integer.parseInt(request.getParameter(AjaxRequest.SERIAL.toString()));
       } catch (final NumberFormatException nfe) {
-        returnError(user, out, ErrorCode.BAD_REQUEST);
+        returnError(user, out, ErrorCode.BAD_REQUEST, -1);
         return;
       }
     }

@@ -43,7 +43,7 @@ import java.util.Set;
 public class Constants {
 
   public static final int CHAT_FLOOD_MESSAGE_COUNT = 5;
-  public static final int CHAT_FLOOD_TIME = 15 * 1000;
+  public static final int CHAT_FLOOD_TIME = 10 * 1000;
   public static final int CHAT_MAX_LENGTH = 200;
 
   @SuppressWarnings("serial")
@@ -101,6 +101,10 @@ public class Constants {
      * The client was banned by the server administrator.
      */
     BANNED("B&"),
+    /**
+     * The client made no user-caused requests within the timeout window.
+     */
+    IDLE_TIMEOUT("it"),
     /**
      * The client was kicked by the server administrator.
      */
@@ -164,6 +168,7 @@ public class Constants {
     CHAT("c"),
     CREATE_GAME("cg"),
     FIRST_LOAD("fl"),
+    GAME_CHAT("GC"),
     GAME_LIST("ggl"),
     /**
      * Get all cards for a particular game: black, hand, and round white cards.
@@ -171,6 +176,7 @@ public class Constants {
     GET_CARDS("gc"),
     GET_GAME_INFO("ggi"),
     JOIN_GAME("jg"),
+    SPECTATE_GAME("vg"),
     JUDGE_SELECT("js"),
     KICK("K"),
     LEAVE_GAME("lg"),
@@ -181,7 +187,9 @@ public class Constants {
     NAMES("gn"),
     PLAY_CARD("pc"),
     REGISTER("r"),
-    START_GAME("sg");
+    SCORE("SC"),
+    START_GAME("sg"),
+    STOP_GAME("Sg");
 
     private final String op;
 
@@ -200,15 +208,15 @@ public class Constants {
    */
   public enum AjaxRequest {
     CARD_ID("cid"),
-    CARD_SETS("css"),
+    EMOTE("me"),
     GAME_ID("gid"),
+    GAME_OPTIONS("go"),
     MESSAGE("m"),
     NICKNAME("n"),
     OP("o"),
     PASSWORD("pw"),
-    PLAYER_LIMIT("pL"),
-    SCORE_LIMIT("sl"),
-    SERIAL("s");
+    SERIAL("s"),
+    WALL("wall");
 
     private final String field;
 
@@ -229,13 +237,14 @@ public class Constants {
     BLACK_CARD("bc"),
     @DuplicationAllowed
     CARD_ID(AjaxRequest.CARD_ID),
-    @DuplicationAllowed
-    CARD_SETS(AjaxRequest.CARD_SETS),
+    CARD_SETS("css"),
     ERROR("e"),
     ERROR_CODE("ec"),
     @DuplicationAllowed
     GAME_ID(AjaxRequest.GAME_ID),
     GAME_INFO("gi"),
+    @DuplicationAllowed
+    GAME_OPTIONS(AjaxRequest.GAME_OPTIONS),
     GAMES("gl"),
     HAND("h"),
     /**
@@ -277,6 +286,7 @@ public class Constants {
   public enum ErrorCode implements Localizable {
     ACCESS_DENIED("ad", "Access denied."),
     ALREADY_STARTED("as", "The game has already started."),
+    ALREADY_STOPPED("aS", "The game has already stopped."),
     BAD_OP("bo", "Invalid operation."),
     BAD_REQUEST("br", "Bad request."),
     @DuplicationAllowed
@@ -308,15 +318,18 @@ public class Constants {
     NOT_ENOUGH_PLAYERS("nep", "There are not enough players to start the game."),
     NOT_GAME_HOST("ngh", "Only the game host can do that."),
     NOT_IN_THAT_GAME("nitg", "You are not in that game."),
-    NOT_JUDGE("nj", "You aren't the judge."),
+    NOT_JUDGE("nj", "You are not the judge."),
     NOT_REGISTERED("nr", "Not registered. Refresh the page."),
     NOT_YOUR_TURN("nyt", "It is not your turn to play a card."),
     OP_NOT_SPECIFIED("ons", "Operation not specified."),
+    RESERVED_NICK("rn", "That nick is reserved."),
     SERVER_ERROR("serr", "An error occured on the server."),
     SESSION_EXPIRED("se", "Your session has expired. Refresh the page."),
     TOO_FAST("tf", "You are chatting too fast. Wait a few seconds and try again."),
     TOO_MANY_GAMES("tmg", "There are too many games already in progress. Either join " +
         "an existing game, or wait for one to become available."),
+    TOO_MANY_USERS("tmu", "There are too many users connected. Either join another server, or " +
+        "wait for a user to disconnect."),
     WRONG_PASSWORD("wp", "That password is incorrect.");
 
     private final String code;
@@ -367,6 +380,8 @@ public class Constants {
     GAME_PLAYER_KICKED_IDLE("gpki"),
     GAME_PLAYER_LEAVE("gpl"),
     GAME_PLAYER_SKIPPED("gps"),
+    GAME_SPECTATOR_JOIN("gvj"),
+    GAME_SPECTATOR_LEAVE("gvl"),
     GAME_ROUND_COMPLETE("grc"),
     GAME_STATE_CHANGE("gsc"),
     GAME_WHITE_RESHUFFLE("gwr"),
@@ -406,6 +421,8 @@ public class Constants {
     @DuplicationAllowed
     BLACK_CARD(AjaxResponse.BLACK_CARD),
     @DuplicationAllowed
+    EMOTE(AjaxRequest.EMOTE),
+    @DuplicationAllowed
     ERROR(AjaxResponse.ERROR),
     @DuplicationAllowed
     ERROR_CODE(AjaxResponse.ERROR_CODE),
@@ -442,6 +459,8 @@ public class Constants {
     REASON("qr"),
     ROUND_WINNER("rw"),
     TIMESTAMP("ts"),
+    @DuplicationAllowed
+    WALL(AjaxRequest.WALL),
     @DuplicationAllowed
     WHITE_CARDS(AjaxResponse.WHITE_CARDS),
     WINNING_CARD("WC");
@@ -522,9 +541,11 @@ public class Constants {
   public enum CardSetData {
     BASE_DECK("bd"),
     BLACK_CARDS_IN_DECK("bcid"),
+    CARD_SET_DESCRIPTION("csd"),
     CARD_SET_NAME("csn"),
     @DuplicationAllowed
     ID(WhiteCardData.ID),
+    WEIGHT("w"),
     WHITE_CARDS_IN_DECK("wcid");
 
     private final String key;
@@ -576,19 +597,14 @@ public class Constants {
    * Fields for information about a game.
    */
   public enum GameInfo {
-    @DuplicationAllowed
-    CARD_SETS(AjaxRequest.CARD_SETS),
-    HAS_PASSWORD("hp"),
     HOST("H"),
     @DuplicationAllowed
     ID(AjaxRequest.GAME_ID),
     @DuplicationAllowed
-    PASSWORD(AjaxRequest.PASSWORD),
-    @DuplicationAllowed
-    PLAYER_LIMIT(AjaxRequest.PLAYER_LIMIT),
+    GAME_OPTIONS(AjaxRequest.GAME_OPTIONS),
+    HAS_PASSWORD("hp"),
     PLAYERS("P"),
-    @DuplicationAllowed
-    SCORE_LIMIT(AjaxRequest.SCORE_LIMIT),
+    SPECTATORS("V"),
     STATE("S");
 
     private final String key;
@@ -598,6 +614,36 @@ public class Constants {
     }
 
     GameInfo(final Enum<?> key) {
+      this.key = key.toString();
+    }
+
+    @Override
+    public String toString() {
+      return key;
+    }
+  }
+
+  /**
+   * Fields for options about a game.
+   */
+  public enum GameOptionData {
+    BLANKS_LIMIT("bl"),
+    @DuplicationAllowed
+    CARD_SETS(AjaxResponse.CARD_SETS),
+    @DuplicationAllowed
+    PASSWORD(AjaxRequest.PASSWORD),
+    PLAYER_LIMIT("pL"),
+    SPECTATOR_LIMIT("vL"),
+    SCORE_LIMIT("sl"),
+    USE_TIMER("ut");
+
+    private final String key;
+
+    GameOptionData(final String key) {
+      this.key = key;
+    }
+
+    GameOptionData(final Enum<?> key) {
       this.key = key.toString();
     }
 
@@ -638,7 +684,8 @@ public class Constants {
     JUDGE("sj", "Card Czar", "You are the Card Czar."),
     JUDGING("sjj", "Selecting", "Select a winning card."),
     PLAYING("sp", "Playing", "Select a card to play."),
-    WINNER("sw", "Winner!", "You have won!");
+    WINNER("sw", "Winner!", "You have won!"),
+    SPECTATOR("sv", "Spectator", "You are just spectating.");
 
     private final String status;
     private final String message;

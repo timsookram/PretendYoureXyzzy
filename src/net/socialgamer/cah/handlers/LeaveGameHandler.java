@@ -58,6 +58,7 @@ public class LeaveGameHandler extends GameWithPlayerHandler {
     final Map<ReturnableData, Object> data = new HashMap<ReturnableData, Object>();
 
     game.removePlayer(user);
+    game.removeSpectator(user);
     return data;
   }
 }

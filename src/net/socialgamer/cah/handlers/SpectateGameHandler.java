@@ -34,54 +34,46 @@ import net.socialgamer.cah.Constants.ErrorCode;
 import net.socialgamer.cah.Constants.ReturnableData;
 import net.socialgamer.cah.RequestWrapper;
 import net.socialgamer.cah.data.Game;
+import net.socialgamer.cah.data.Game.TooManySpectatorsException;
 import net.socialgamer.cah.data.GameManager;
 import net.socialgamer.cah.data.User;
-
-import org.apache.commons.lang3.StringEscapeUtils;
 
 import com.google.inject.Inject;
 
 
 /**
- * Handler to play a card.
+ * Handler to spectate a game.
  * 
- * @author Andy Janata (ajanata@socialgamer.net)
+ * @author Gavin Lambert (cah@mirality.co.nz)
  */
-public class PlayCardHandler extends GameWithPlayerHandler {
+public class SpectateGameHandler extends GameHandler {
 
-  public static final String OP = AjaxOperation.PLAY_CARD.toString();
+  public static final String OP = AjaxOperation.SPECTATE_GAME.toString();
 
   @Inject
-  public PlayCardHandler(final GameManager gameManager) {
+  public SpectateGameHandler(final GameManager gameManager) {
     super(gameManager);
   }
 
   @Override
-  public Map<ReturnableData, Object> handleWithUserInGame(final RequestWrapper request,
+  public Map<ReturnableData, Object> handle(final RequestWrapper request,
       final HttpSession session, final User user, final Game game) {
     final Map<ReturnableData, Object> data = new HashMap<ReturnableData, Object>();
 
-    final int cardId;
-
-    if (request.getParameter(AjaxRequest.CARD_ID) == null) {
-      return error(ErrorCode.NO_CARD_SPECIFIED);
+    final String password = request.getParameter(AjaxRequest.PASSWORD);
+    final String gamePassword = game.getPassword();
+    if (gamePassword != null && !gamePassword.equals("")) {
+      if (password == null || !gamePassword.equals(password)) {
+        return error(ErrorCode.WRONG_PASSWORD);
+      }
     }
     try {
-      cardId = Integer.parseInt(request.getParameter(AjaxRequest.CARD_ID));
-    } catch (final NumberFormatException nfe) {
-      return error(ErrorCode.INVALID_CARD);
+      game.addSpectator(user);
+    } catch (final IllegalStateException e) {
+      return error(ErrorCode.CANNOT_JOIN_ANOTHER_GAME);
+    } catch (final TooManySpectatorsException e) {
+      return error(ErrorCode.GAME_FULL);
     }
-    String text = request.getParameter(AjaxRequest.MESSAGE);
-    if (text != null && text.contains("<")) {
-      // somebody must be using a hacked client, because this should have been escaped already.
-      text = StringEscapeUtils.escapeXml(text);
-    }
-
-    final ErrorCode ec = game.playCard(user, cardId, text);
-    if (ec != null) {
-      return error(ec);
-    } else {
-      return data;
-    }
+    return data;
   }
 }

@@ -23,11 +23,17 @@
 
 package net.socialgamer.cah;
 
+import java.io.File;
+import java.io.FileReader;
 import java.util.Date;
-import java.util.Timer;
+import java.util.Properties;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
+
+import org.apache.log4j.PropertyConfigurator;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
@@ -59,11 +65,6 @@ public class StartupUtils extends GuiceServletContextListener {
   private static final long PING_CHECK_DELAY = 5 * 1000;
 
   /**
-   * Context attribute key name for the disconnected client timer.
-   */
-  private static final String PING_TIMER_NAME = "ping_timer";
-
-  /**
    * Context attribute key name for the time the server was started.
    */
   public static final String DATE_NAME = "started_at";
@@ -81,10 +82,12 @@ public class StartupUtils extends GuiceServletContextListener {
   @Override
   public void contextDestroyed(final ServletContextEvent contextEvent) {
     final ServletContext context = contextEvent.getServletContext();
-    final Timer timer = (Timer) context.getAttribute(PING_TIMER_NAME);
-    assert (timer != null);
-    timer.cancel();
-    context.removeAttribute(PING_TIMER_NAME);
+
+    final Injector injector = (Injector) context.getAttribute(INJECTOR);
+    final ScheduledThreadPoolExecutor timer = injector
+        .getInstance(ScheduledThreadPoolExecutor.class);
+    timer.shutdownNow();
+
     context.removeAttribute(INJECTOR);
     context.removeAttribute(DATE_NAME);
 
@@ -96,12 +99,33 @@ public class StartupUtils extends GuiceServletContextListener {
     final ServletContext context = contextEvent.getServletContext();
     final Injector injector = getInjector();
     final UserPing ping = injector.getInstance(UserPing.class);
-    final Timer timer = new Timer("PingCheck", true);
-    timer.schedule(ping, PING_START_DELAY, PING_CHECK_DELAY);
+    final ScheduledThreadPoolExecutor timer = injector
+        .getInstance(ScheduledThreadPoolExecutor.class);
+    timer.scheduleAtFixedRate(ping, PING_START_DELAY, PING_CHECK_DELAY, TimeUnit.MILLISECONDS);
     serverStarted = new Date();
-    context.setAttribute(PING_TIMER_NAME, timer);
     context.setAttribute(INJECTOR, injector);
     context.setAttribute(DATE_NAME, serverStarted);
+
+    reconfigureLogging(contextEvent.getServletContext());
+    reloadProperties(contextEvent.getServletContext());
+  }
+
+  public static void reloadProperties(final ServletContext context) {
+    final Injector injector = (Injector) context.getAttribute(INJECTOR);
+    final Properties props = injector.getInstance(Properties.class);
+    final File propsFile = new File(context.getRealPath("/WEB-INF/pyx.properties"));
+    try {
+      props.clear();
+      props.load(new FileReader(propsFile));
+    } catch (final Exception e) {
+      // we should probably do something?
+      e.printStackTrace();
+    }
+  }
+
+  public static void reconfigureLogging(final ServletContext context) {
+    PropertyConfigurator.configure(context.getRealPath(
+        "/WEB-INF/log4j.properties"));
   }
 
   @Override

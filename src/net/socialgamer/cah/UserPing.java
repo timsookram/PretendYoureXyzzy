@@ -23,7 +23,7 @@
 
 package net.socialgamer.cah;
 
-import java.util.TimerTask;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import net.socialgamer.cah.data.ConnectedUsers;
 
@@ -31,21 +31,24 @@ import com.google.inject.Inject;
 
 
 /**
- * Timer task to check for disconnected clients.
+ * Timer task to check for disconnected and idle clients.
  * 
  * @author Andy Janata (ajanata@gmail.com)
  */
-public class UserPing extends TimerTask {
+public class UserPing extends SafeTimerTask {
 
   private final ConnectedUsers users;
+  private final ScheduledThreadPoolExecutor globalTimer;
 
   @Inject
-  public UserPing(final ConnectedUsers users) {
+  public UserPing(final ConnectedUsers users, final ScheduledThreadPoolExecutor globalTimer) {
     this.users = users;
+    this.globalTimer = globalTimer;
   }
 
   @Override
-  public void run() {
-    users.checkForPingTimeouts();
+  public void process() {
+    users.checkForPingAndIdleTimeouts();
+    globalTimer.purge();
   }
 }

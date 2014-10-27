@@ -24,9 +24,9 @@
 package net.socialgamer.cah.data;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -43,20 +43,18 @@ import net.socialgamer.cah.db.CardSet;
  */
 public class BlackDeck {
   private final List<BlackCard> deck;
-  private final List<BlackCard> dealt;
   private final List<BlackCard> discard;
 
   /**
    * Create a new black card deck, loading the cards from the database and shuffling them.
    */
-  public BlackDeck(final Set<CardSet> cardSets) {
+  public BlackDeck(final Collection<CardSet> cardSets) {
     final Set<BlackCard> allCards = new HashSet<BlackCard>();
     for (final CardSet cardSet : cardSets) {
       allCards.addAll(cardSet.getBlackCards());
     }
     deck = new ArrayList<BlackCard>(allCards);
     Collections.shuffle(deck);
-    dealt = new LinkedList<BlackCard>();
     discard = new ArrayList<BlackCard>(deck.size());
   }
 
@@ -73,7 +71,6 @@ public class BlackDeck {
     }
     // we have an ArrayList here, so this is faster
     final BlackCard card = deck.remove(deck.size() - 1);
-    dealt.add(card);
     return card;
   }
 

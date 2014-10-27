@@ -28,31 +28,33 @@ import java.util.Map;
 
 import javax.servlet.http.HttpSession;
 
+import net.socialgamer.cah.Constants;
 import net.socialgamer.cah.Constants.AjaxOperation;
 import net.socialgamer.cah.Constants.AjaxRequest;
 import net.socialgamer.cah.Constants.ErrorCode;
+import net.socialgamer.cah.Constants.LongPollEvent;
+import net.socialgamer.cah.Constants.LongPollResponse;
 import net.socialgamer.cah.Constants.ReturnableData;
 import net.socialgamer.cah.RequestWrapper;
 import net.socialgamer.cah.data.Game;
 import net.socialgamer.cah.data.GameManager;
+import net.socialgamer.cah.data.QueuedMessage.MessageType;
 import net.socialgamer.cah.data.User;
-
-import org.apache.commons.lang3.StringEscapeUtils;
 
 import com.google.inject.Inject;
 
 
 /**
- * Handler to play a card.
+ * Handler for chat messages.
  * 
  * @author Andy Janata (ajanata@socialgamer.net)
  */
-public class PlayCardHandler extends GameWithPlayerHandler {
+public class GameChatHandler extends GameWithPlayerHandler {
 
-  public static final String OP = AjaxOperation.PLAY_CARD.toString();
+  public static final String OP = AjaxOperation.GAME_CHAT.toString();
 
   @Inject
-  public PlayCardHandler(final GameManager gameManager) {
+  public GameChatHandler(final GameManager gameManager) {
     super(gameManager);
   }
 
@@ -60,28 +62,41 @@ public class PlayCardHandler extends GameWithPlayerHandler {
   public Map<ReturnableData, Object> handleWithUserInGame(final RequestWrapper request,
       final HttpSession session, final User user, final Game game) {
     final Map<ReturnableData, Object> data = new HashMap<ReturnableData, Object>();
+    final boolean emote = request.getParameter(AjaxRequest.EMOTE) != null
+        && Boolean.valueOf(request.getParameter(AjaxRequest.EMOTE));
 
-    final int cardId;
-
-    if (request.getParameter(AjaxRequest.CARD_ID) == null) {
-      return error(ErrorCode.NO_CARD_SPECIFIED);
-    }
-    try {
-      cardId = Integer.parseInt(request.getParameter(AjaxRequest.CARD_ID));
-    } catch (final NumberFormatException nfe) {
-      return error(ErrorCode.INVALID_CARD);
-    }
-    String text = request.getParameter(AjaxRequest.MESSAGE);
-    if (text != null && text.contains("<")) {
-      // somebody must be using a hacked client, because this should have been escaped already.
-      text = StringEscapeUtils.escapeXml(text);
-    }
-
-    final ErrorCode ec = game.playCard(user, cardId, text);
-    if (ec != null) {
-      return error(ec);
+    if (request.getParameter(AjaxRequest.MESSAGE) == null) {
+      return error(ErrorCode.NO_MSG_SPECIFIED);
     } else {
-      return data;
+      final String message = request.getParameter(AjaxRequest.MESSAGE).trim();
+
+      // Intentionally leaving flood protection as per-user, rather than
+      // changing it to per-user-per-game.
+      if (user.getLastMessageTimes().size() >= Constants.CHAT_FLOOD_MESSAGE_COUNT) {
+        final Long head = user.getLastMessageTimes().get(0);
+        if (System.currentTimeMillis() - head < Constants.CHAT_FLOOD_TIME) {
+          return error(ErrorCode.TOO_FAST);
+        }
+        user.getLastMessageTimes().remove(0);
+      }
+
+      if (message.length() > Constants.CHAT_MAX_LENGTH) {
+        return error(ErrorCode.MESSAGE_TOO_LONG);
+      } else if (message.length() == 0) {
+        return error(ErrorCode.NO_MSG_SPECIFIED);
+      } else {
+        user.getLastMessageTimes().add(System.currentTimeMillis());
+        final HashMap<ReturnableData, Object> broadcastData = new HashMap<ReturnableData, Object>();
+        broadcastData.put(LongPollResponse.EVENT, LongPollEvent.CHAT.toString());
+        broadcastData.put(LongPollResponse.FROM, user.getNickname());
+        broadcastData.put(LongPollResponse.MESSAGE, message);
+        broadcastData.put(LongPollResponse.FROM_ADMIN, user.isAdmin());
+        broadcastData.put(LongPollResponse.GAME_ID, game.getId());
+        broadcastData.put(LongPollResponse.EMOTE, emote);
+        game.broadcastToPlayers(MessageType.CHAT, broadcastData);
+      }
     }
+
+    return data;
   }
 }

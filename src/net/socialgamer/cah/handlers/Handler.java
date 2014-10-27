@@ -25,7 +25,6 @@ package net.socialgamer.cah.handlers;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Logger;
 
 import javax.servlet.http.HttpSession;
 
@@ -42,7 +41,6 @@ import net.socialgamer.cah.RequestWrapper;
  * @author Andy Janata (ajanata@socialgamer.net)
  */
 public abstract class Handler {
-  protected final Logger logger = Logger.getLogger("net.socialgamer.cah.handlers.Handler");
 
   /**
    * Handle a request.

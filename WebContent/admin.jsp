@@ -31,12 +31,13 @@ Administration tools.
 <%@ page import="com.google.inject.Key" %>
 <%@ page import="com.google.inject.TypeLiteral" %>
 <%@ page import="net.socialgamer.cah.RequestWrapper" %>
+<%@ page import="net.socialgamer.cah.StartupUtils" %>
 <%@ page import="net.socialgamer.cah.CahModule.BanList" %>
+<%@ page import="net.socialgamer.cah.Constants" %>
 <%@ page import="net.socialgamer.cah.Constants.DisconnectReason" %>
 <%@ page import="net.socialgamer.cah.Constants.LongPollEvent" %>
 <%@ page import="net.socialgamer.cah.Constants.LongPollResponse" %>
 <%@ page import="net.socialgamer.cah.Constants.ReturnableData" %>
-<%@ page import="net.socialgamer.cah.StartupUtils" %>
 <%@ page import="net.socialgamer.cah.data.ConnectedUsers" %>
 <%@ page import="net.socialgamer.cah.data.QueuedMessage" %>
 <%@ page import="net.socialgamer.cah.data.QueuedMessage.MessageType" %>
@@ -49,10 +50,7 @@ Administration tools.
 
 <%
 RequestWrapper wrapper = new RequestWrapper(request);
-String remoteAddr = wrapper.getRemoteAddr();
-// TODO better access control than hard-coding IP addresses.
-if (!(remoteAddr.equals("0:0:0:0:0:0:0:1") || remoteAddr.equals("127.0.0.1") ||
-    remoteAddr.equals("98.248.33.90") || remoteAddr.equals("207.161.39.198"))) {
+if (!Constants.ADMIN_IP_ADDRESSES.contains(wrapper.getRemoteAddr())) {
   response.sendError(403, "Access is restricted to known hosts");
   return;
 }
@@ -114,6 +112,16 @@ if (unbanParam != null) {
   banList.remove(unbanParam);
   response.sendRedirect("admin.jsp");
   return;
+}
+
+String reloadLog4j = request.getParameter("reloadLog4j");
+if ("true".equals(reloadLog4j)) {
+  StartupUtils.reconfigureLogging(this.getServletContext());
+}
+
+String reloadProps = request.getParameter("reloadProps");
+if ("true".equals(reloadProps)) {
+  StartupUtils.reloadProperties(this.getServletContext());
 }
 
 %>
@@ -218,12 +226,19 @@ User list:
 </table>
 
 <%
+// TODO remove this "verbose logging" crap now that log4j is working.
 Boolean verboseDebugObj = (Boolean) servletContext.getAttribute(StartupUtils.VERBOSE_DEBUG); 
 boolean verboseDebug = verboseDebugObj != null ? verboseDebugObj.booleanValue() : false;
 %>
 <p>
   Verbose logging is currently <strong><%= verboseDebug ? "ON" : "OFF" %></strong>.
   <a href="?verbose=on">Turn on.</a> <a href="?verbose=off">Turn off.</a>
+</p>
+<p>
+  <a href="?reloadLog4j=true">Reload log4j.properties.</a>
+</p>
+<p>
+  <a href="?reloadProps=true">Reload pyx.properties.</a>
 </p>
 
 </body>

@@ -29,30 +29,30 @@ import java.util.Map;
 import javax.servlet.http.HttpSession;
 
 import net.socialgamer.cah.Constants.AjaxOperation;
-import net.socialgamer.cah.Constants.AjaxRequest;
 import net.socialgamer.cah.Constants.ErrorCode;
+import net.socialgamer.cah.Constants.GameState;
 import net.socialgamer.cah.Constants.ReturnableData;
 import net.socialgamer.cah.RequestWrapper;
 import net.socialgamer.cah.data.Game;
 import net.socialgamer.cah.data.GameManager;
 import net.socialgamer.cah.data.User;
 
-import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.log4j.Logger;
 
 import com.google.inject.Inject;
 
 
 /**
- * Handler to play a card.
- * 
- * @author Andy Janata (ajanata@socialgamer.net)
+ * Handler to stop a game.
  */
-public class PlayCardHandler extends GameWithPlayerHandler {
+public class StopGameHandler extends GameWithPlayerHandler {
 
-  public static final String OP = AjaxOperation.PLAY_CARD.toString();
+  protected final Logger logger = Logger.getLogger(GameWithPlayerHandler.class);
+
+  public static final String OP = AjaxOperation.STOP_GAME.toString();
 
   @Inject
-  public PlayCardHandler(final GameManager gameManager) {
+  public StopGameHandler(final GameManager gameManager) {
     super(gameManager);
   }
 
@@ -61,26 +61,14 @@ public class PlayCardHandler extends GameWithPlayerHandler {
       final HttpSession session, final User user, final Game game) {
     final Map<ReturnableData, Object> data = new HashMap<ReturnableData, Object>();
 
-    final int cardId;
-
-    if (request.getParameter(AjaxRequest.CARD_ID) == null) {
-      return error(ErrorCode.NO_CARD_SPECIFIED);
-    }
-    try {
-      cardId = Integer.parseInt(request.getParameter(AjaxRequest.CARD_ID));
-    } catch (final NumberFormatException nfe) {
-      return error(ErrorCode.INVALID_CARD);
-    }
-    String text = request.getParameter(AjaxRequest.MESSAGE);
-    if (text != null && text.contains("<")) {
-      // somebody must be using a hacked client, because this should have been escaped already.
-      text = StringEscapeUtils.escapeXml(text);
-    }
-
-    final ErrorCode ec = game.playCard(user, cardId, text);
-    if (ec != null) {
-      return error(ec);
+    if (game.getHost() != user) {
+      return error(ErrorCode.NOT_GAME_HOST);
+    } else if (game.getState() == GameState.LOBBY) {
+      return error(ErrorCode.ALREADY_STOPPED);
     } else {
+      logger.info(String.format("Game %d stopped by host %s. Players: %s", game.getId(), user,
+          game.getPlayers()));
+      game.resetState(false);
       return data;
     }
   }

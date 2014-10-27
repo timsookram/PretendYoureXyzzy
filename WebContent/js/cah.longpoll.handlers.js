@@ -40,6 +40,7 @@ cah.longpoll.EventHandlers[cah.$.LongPollEvent.NEW_PLAYER] = function(data) {
   }
 };
 
+// TODO Not sure why this isn't done with localizable strings in constants.
 cah.longpoll.EventHandlers[cah.$.LongPollEvent.PLAYER_LEAVE] = function(data) {
   var friendly_reason = "Leaving";
   var show = !cah.hideConnectQuit;
@@ -47,6 +48,9 @@ cah.longpoll.EventHandlers[cah.$.LongPollEvent.PLAYER_LEAVE] = function(data) {
     case cah.$.DisconnectReason.BANNED:
       friendly_reason = "Banned";
       show = true;
+      break;
+    case cah.$.DisconnectReason.IDLE_TIMEOUT:
+      friendly_reason = "Kicked due to idle";
       break;
     case cah.$.DisconnectReason.KICKED:
       friendly_reason = "Kicked by server administrator";
@@ -88,18 +92,32 @@ cah.longpoll.EventHandlers[cah.$.LongPollEvent.BANNED] = function() {
 };
 
 cah.longpoll.EventHandlers[cah.$.LongPollEvent.CHAT] = function(data) {
-  // TODO deal with multiple channels eventually
   var clazz = undefined;
   var from = data[cah.$.LongPollResponse.FROM];
   var show = !cah.ignoreList[from];
+  var game = null;
   if (data[cah.$.LongPollResponse.FROM_ADMIN]) {
     clazz = "admin";
     show = true;
   }
-  // don't display our own chat
-  if (from != cah.nickname && show) {
-    cah.log.status("<" + data[cah.$.LongPollResponse.FROM] + "> "
-        + data[cah.$.LongPollResponse.MESSAGE], clazz);
+  if (data[cah.$.LongPollResponse.WALL]) {
+    // treat these specially
+    cah.log.everyWindow(
+        "Global message from " + from + ": " + data[cah.$.LongPollResponse.MESSAGE], clazz);
+  } else {
+    if (cah.$.LongPollResponse.GAME_ID in data) {
+      game = data[cah.$.LongPollResponse.GAME_ID];
+    }
+
+    // don't display our own chat
+    if (from != cah.nickname && show) {
+      var message = data[cah.$.LongPollResponse.MESSAGE];
+      if (data[cah.$.LongPollResponse.EMOTE]) {
+        cah.log.status_with_game(game, "* " + from + " " + message, clazz);
+      } else {
+        cah.log.status_with_game(game, "<" + from + "> " + message, clazz);
+      }
+    }
   }
 };
 
@@ -116,6 +134,17 @@ cah.longpoll.EventHandlers[cah.$.LongPollEvent.GAME_PLAYER_JOIN] = function(data
 cah.longpoll.EventHandlers[cah.$.LongPollEvent.GAME_PLAYER_LEAVE] = function(data) {
   cah.longpoll.EventHandlers.__gameEvent(data, cah.Game.prototype.playerLeave,
       data[cah.$.LongPollResponse.NICKNAME], "player leave");
+};
+
+cah.longpoll.EventHandlers[cah.$.LongPollEvent.GAME_SPECTATOR_JOIN] = function(data) {
+  cah.longpoll.EventHandlers.__gameEvent(data, cah.Game.prototype.spectatorJoin,
+      data[cah.$.LongPollResponse.NICKNAME],
+      "spectator join (if you just joined a game this may be OK)");
+};
+
+cah.longpoll.EventHandlers[cah.$.LongPollEvent.GAME_SPECTATOR_LEAVE] = function(data) {
+  cah.longpoll.EventHandlers.__gameEvent(data, cah.Game.prototype.spectatorLeave,
+      data[cah.$.LongPollResponse.NICKNAME], "spectator leave");
 };
 
 cah.longpoll.EventHandlers[cah.$.LongPollEvent.HAND_DEAL] = function(data) {
@@ -181,8 +210,8 @@ cah.longpoll.EventHandlers[cah.$.LongPollEvent.KICKED_FROM_GAME_IDLE] = function
     game.dispose();
     delete cah.currentGames[data[cah.$.LongPollResponse.GAME_ID]];
   }
-  cah.GameList.instance.update();
   cah.GameList.instance.show();
+  cah.GameList.instance.update();
 
   cah.log.error("You were kicked from game " + data[cah.$.LongPollResponse.GAME_ID]
       + " for being idle for too long.");
